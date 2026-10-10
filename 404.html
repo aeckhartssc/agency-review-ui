@@ -1,0 +1,10 @@
+<!doctype html>
+<meta charset="utf-8">
+<script>
+const m = location.pathname.match(/\/review\/(\d+)\/?$/);
+if (m) {
+  location.replace(location.origin + "/agency-review-ui/?review=" + m[1]);
+} else {
+  location.replace(location.origin + "/agency-review-ui/");
+}
+</script>
