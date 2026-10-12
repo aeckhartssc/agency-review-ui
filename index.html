@@ -116,10 +116,11 @@ function opts(arr,selected){return arr.map(([v,l])=>`<option value="${v}" ${sele
 async function renderReview(n){
   app.innerHTML='<div class="loading">Loading review…</div>';
   try{
-    const {review:r,company:c}=await api("/review/"+n);
+    const {review:r,company:c,classification_history:history=[]}=await api("/review/"+n);
+    const actionable=["pending","escalated"].includes(r.status);
     const relatedJobs=Array.isArray(r.job_evidence)?r.job_evidence:[];
     header.classList.remove("hidden");
-    const companyWebsite=safeUrl(r.corporate_website);
+    const companyWebsite=safeUrl(c.corporate_website)||safeUrl(r.corporate_website);
     const indeedCompany=safeUrl(c.indeed_company_url);
     const website=companyWebsite?`<a href="${esc(companyWebsite)}" target="_blank" rel="noopener noreferrer">${esc(r.corporate_website)}</a>`:"—";
     const indeedLink=indeedCompany?`<a href="${esc(indeedCompany)}" target="_blank" rel="noopener noreferrer">View Indeed employer profile</a>`:"—";
@@ -140,15 +141,18 @@ async function renderReview(n){
     '<p class="muted">The review API has not yet supplied job descriptions. These are sample titles, not the complete job evidence.</p>';
     const evidence=(r.evidence_urls||[]).map(x=>{const u=safeUrl(x);return u?`<li><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(x)}</a></li>`:""}).join("");
     const machineGtm=r.machine_is_gtm_agency===true?"Yes":r.machine_is_gtm_agency===false?"No":"Unclear";
-    const defaultClass=r.human_company_class||r.machine_company_class||"service_business";
+    const defaultClass=r.human_company_class||(actionable?r.machine_company_class:c.company_class)||"unknown";
     const defaultCat=r.human_primary_service_category||r.machine_primary_service_category||"unknown";
     const defaultGtm=r.human_is_gtm_agency===true?"yes":r.human_is_gtm_agency===false?"no":r.machine_is_gtm_agency===true?"yes":"no";
+    const decisionMethod=({human:"Human",machine:"Machine",system:"System"})[c.classification_method]||"Unclassified";
+    const historyRows=history.map(event=>`<li><strong>${esc(({human:"Human",machine:"Machine",system:"System"})[event.method]||event.method)}</strong> · ${esc(event.model||event.evidence_kind||"")} · ${esc(new Date(event.created_at).toLocaleString())}<p>${esc(event.decision?.reason||"No reason recorded.")}</p></li>`).join("");
     const shareUrl=new URL(location.href);shareUrl.searchParams.set("review",r.review_number);
     app.innerHTML=`
       <div class="number">Review #${r.review_number} · <span class="badge ${esc(r.status)}">${esc(r.status)}</span>
       <button class="copy" onclick="copyLink()">Copy link</button></div>
       <h1>${esc(r.company_name)}</h1>
       <div class="company-note"><strong>Review the business once, not each job.</strong> This decision applies to this company and all ${jobCount} associated jobs. After submission, this company leaves the pending queue.</div>
+      ${!actionable?'<div class="notice">This business has already been resolved. Its permanent review link and evidence remain available.</div>':""}
       ${r.status==="escalated"?'<div class="notice"><strong>Escalated.</strong> This is waiting for Alex/partner review.</div>':""}
       <div class="grid">
         <div>
@@ -173,8 +177,14 @@ async function renderReview(n){
           </div>
         </div>
 
-        <div><div class="card"><h2>Human decision — one per company</h2>
-          <form id="reviewForm">
+        <div><div class="card"><h2>Decision source</h2><div class="kv">
+            <div>Reviewed by</div><div>${esc(decisionMethod)}</div>
+            <div>Model</div><div>${esc(c.classification_model||"—")}</div>
+            <div>Evidence used</div><div>${esc(c.classification_evidence_kind||"—")}</div>
+            <div>Recorded</div><div>${esc(c.classified_at?new Date(c.classified_at).toLocaleString():"—")}</div>
+          </div>${historyRows?`<details><summary>Classification history (${history.length} recent)</summary><ul class="compact">${historyRows}</ul></details>`:""}</div>
+          <div class="card"><h2>Human decision — one per company</h2>
+          <form id="reviewForm"><fieldset ${actionable?"":"disabled"} style="border:0;padding:0;margin:0">
             <label>What kind of company is this?</label>
             <select id="companyClass" required>${opts(CLASS_OPTIONS,defaultClass)}</select>
             <div id="serviceFields">
@@ -191,8 +201,8 @@ async function renderReview(n){
             <label>Why? <span class="muted">(one sentence)</span></label>
             <textarea id="notes" required placeholder="Example: Provides outsourced bookkeeping and monthly accounting operations for clients.">${esc(r.human_notes||"")}</textarea>
             <div class="actions"><button class="action primary">Submit & Next</button></div>
-          </form>
-          ${r.status!=="applied"?'<div class="actions"><button class="action danger" onclick="escalate('+r.review_number+')">Escalate this review</button></div>':""}
+          </fieldset></form>
+          ${actionable?'<div class="actions"><button class="action danger" onclick="escalate('+r.review_number+')">Escalate this review</button></div>':""}
           <details><summary>Quick classification guide</summary>
             <p><strong>Service business:</strong> B2B professional/outsourced services that perform a specialized function, deliver client-specific work, or manage operations for other companies.</p>
             <p><strong>GTM agency:</strong> service business executing marketing/creative/communications or outsourced sales/GTM work for clients.</p>
