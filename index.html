@@ -116,14 +116,15 @@ function opts(arr,selected){return arr.map(([v,l])=>`<option value="${v}" ${sele
 async function renderReview(n){
   app.innerHTML='<div class="loading">Loading review…</div>';
   try{
-    const {review:r,company:c,jobs:relatedJobs}=await api("/review/"+n);
+    const {review:r,company:c}=await api("/review/"+n);
+    const relatedJobs=Array.isArray(r.job_evidence)?r.job_evidence:[];
     header.classList.remove("hidden");
     const companyWebsite=safeUrl(r.corporate_website);
     const indeedCompany=safeUrl(c.indeed_company_url);
     const website=companyWebsite?`<a href="${esc(companyWebsite)}" target="_blank" rel="noopener noreferrer">${esc(r.corporate_website)}</a>`:"—";
     const indeedLink=indeedCompany?`<a href="${esc(indeedCompany)}" target="_blank" rel="noopener noreferrer">View Indeed employer profile</a>`:"—";
     const jobs=(r.sample_job_titles||[]).map(x=>`<li>${esc(x)}</li>`).join("");
-    const hasFullJobList=Array.isArray(relatedJobs);
+    const hasFullJobList=Array.isArray(r.job_evidence) && relatedJobs.length===Number(r.observed_job_count??0);
     const jobCount=hasFullJobList?relatedJobs.length:Number(r.observed_job_count??0);
     const jobDetails=hasFullJobList?relatedJobs.map((j,i)=>{
       const desc=String(j.description_text||"").trim();
