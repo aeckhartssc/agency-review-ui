@@ -194,6 +194,12 @@ async function renderReview(n){
             <div>Evidence used</div><div>${esc(c.classification_evidence_kind||"—")}</div>
             <div>Recorded</div><div>${esc(c.classified_at?new Date(c.classified_at).toLocaleString():"—")}</div>
           </div>${historyRows?`<details><summary>Classification history (${history.length} recent)</summary><ul class="compact">${historyRows}</ul></details>`:""}</div>
+          <div class="card"><h2>Company website</h2>
+          <p class="muted">If you find the company's official website, add it whenever possible. This saves the website without changing your classification.</p>
+          <form id="websiteForm"><label for="companyWebsite">Official company URL</label>
+          <input id="companyWebsite" type="text" inputmode="url" value="${esc(c.corporate_website||r.corporate_website||"")}" placeholder="https://company.com" maxlength="2048">
+          <div class="actions"><button class="action secondary" id="saveWebsite">Save website</button></div>
+          <p id="websiteStatus" role="status" class="muted"></p></form></div>
           <div class="card"><h2>Human decision — one per company</h2>
           <form id="reviewForm"><fieldset ${actionable?"":"disabled"} style="border:0;padding:0;margin:0">
             <label>What kind of company is this?</label>
@@ -215,7 +221,7 @@ async function renderReview(n){
           </fieldset></form>
           ${actionable?'<div class="actions"><button class="action danger" onclick="escalate('+r.review_number+')">Escalate this review</button></div>':""}
           <details><summary>Quick classification guide</summary>
-            <p><strong>Service business:</strong> B2B professional/outsourced services that perform a specialized function, deliver client-specific work, or manage operations for other companies.</p>
+            <p><strong>Service business:</strong> Executes knowledge-based business functions for client organizations. Physical operations are excluded.</p>
             <p><strong>GTM agency:</strong> service business executing marketing/creative/communications or outsourced sales/GTM work for clients.</p>
             <p><strong>Do not choose active/passive tracking.</strong> Tracking is derived automatically from service category configuration.</p>
             <p>If genuinely uncertain, use <strong>Escalate</strong> and send Review #${r.review_number} or this page URL to Alex/partner.</p>
@@ -223,12 +229,30 @@ async function renderReview(n){
         </div></div>
       </div>`;
 
+    let savedWebsite=c.corporate_website||r.corporate_website||"";
+    window._saveCompanyWebsite=async()=>{
+      const input=document.getElementById("companyWebsite");
+      if(!input)return;
+      const website=input.value.trim();
+      if(!website||website===savedWebsite)return;
+      const status=document.getElementById("websiteStatus");
+      status.textContent="Saving website…";
+      const d=await api("/review/"+r.review_number+"/website",{method:"POST",body:JSON.stringify({website})});
+      savedWebsite=d.website;input.value=d.website;status.textContent="Website saved.";
+    };
+    document.getElementById("websiteForm").onsubmit=async e=>{
+      e.preventDefault();
+      const button=document.getElementById("saveWebsite");button.disabled=true;
+      try{await window._saveCompanyWebsite()}catch(err){document.getElementById("websiteStatus").textContent=err.message}
+      finally{button.disabled=false}
+    };
     const classSel=document.getElementById("companyClass"),fields=document.getElementById("serviceFields");
     const sync=()=>fields.classList.toggle("hidden",classSel.value!=="service_business");classSel.onchange=sync;sync();
     document.getElementById("reviewForm").onsubmit=async e=>{
       e.preventDefault();
       const gtm=document.querySelector('input[name="gtm"]:checked')?.value==="yes";
       try{
+        await window._saveCompanyWebsite();
         const d=await api("/review/"+r.review_number+"/submit",{method:"POST",body:JSON.stringify({
           company_class:classSel.value,
           primary_service_category:document.getElementById("serviceCategory").value,
@@ -246,6 +270,7 @@ async function renderReview(n){
 async function escalate(n){
   const note=prompt("Optional note for Alex/partner:")||"";
   try{
+    await window._saveCompanyWebsite?.();
     const d=await api("/review/"+n+"/escalate",{method:"POST",body:JSON.stringify({notes:note})});
     if(d.next_review_number!=null){setReviewUrl(d.next_review_number);await renderReview(d.next_review_number)}
     else{clearReviewUrl();await goNext()}
