@@ -151,6 +151,17 @@ async function renderReview(n){
       <div class="number">Review #${r.review_number} · <span class="badge ${esc(r.status)}">${esc(r.status)}</span>
       <button class="copy" onclick="copyLink()">Copy link</button></div>
       <h1>${esc(r.company_name)}</h1>
+      <details class="card" style="margin-bottom:16px"><summary><strong>Scope and company class definitions</strong></summary>
+<p>We include firms hired to execute <strong>knowledge-based business functions for client organizations</strong>. Classify the company offering, not its job title.</p>
+<ul>
+<li><strong>Service business:</strong> client marketing/sales, bookkeeping, managed IT/cybersecurity, HR, recruiting, customer support, or custom research execution.</li>
+<li><strong>Operating company:</strong> goods, financial products, facilities/consumer operations, or physical services. Includes security guards, building-security installation, cleaning, construction, and logistics.</li>
+<li><strong>Software / product company:</strong> primarily sells software or a repeatable platform.</li>
+<li><strong>Legal services:</strong> law firm or legal practice; excluded.</li>
+<li><strong>Other:</strong> known business outside these classes, including pure strategy/advice or research subscriptions without execution.</li>
+<li><strong>Unknown:</strong> missing or conflicting evidence. Explain what is missing; escalate unresolved scope questions.</li>
+</ul><p>Only marketing/creative/PR and outsourced sales are actively tracked today. Other qualifying service categories remain passive. “Other Professional Services” is reserved for knowledge-based execution, never physical operations.</p>
+<p><a href="https://github.com/aeckhartssc/agency-hiring-intel/blob/main/REVIEWER_GUIDE.md" target="_blank" rel="noopener">Read the full sorting guide and examples</a></p></details>
       <div class="company-note"><strong>Review the business once, not each job.</strong> This decision applies to this company and all ${jobCount} associated jobs. After submission, this company leaves the pending queue.</div>
       ${!actionable?'<div class="notice">This business has already been resolved. Its permanent review link and evidence remain available.</div>':""}
       ${r.status==="escalated"?'<div class="notice"><strong>Escalated.</strong> This is waiting for Alex/partner review.</div>':""}
